@@ -166,41 +166,45 @@ export const make = Effect.gen(function* () {
   });
 
   return ElectronWindow.of({
-    create: (options) => {
-      const resolvedOptions = resolveLinuxX11WindowFrameOptions({
-        options,
-        platform,
-        env: process.env,
-        ozonePlatform: Electron.app.commandLine?.getSwitchValue("ozone-platform") ?? null,
-      });
-      const webPreferences = resolvedOptions.webPreferences;
-      const diagnosticOptions = {
-        title: resolvedOptions.title ?? null,
-        width: resolvedOptions.width ?? null,
-        height: resolvedOptions.height ?? null,
-        minWidth: resolvedOptions.minWidth ?? null,
-        minHeight: resolvedOptions.minHeight ?? null,
-        show: resolvedOptions.show ?? null,
-        modal: resolvedOptions.modal ?? null,
-        frame: resolvedOptions.frame ?? null,
-        transparent: resolvedOptions.transparent ?? null,
-        backgroundColor: resolvedOptions.backgroundColor ?? null,
-        webPreferences: {
-          preload: webPreferences?.preload ?? null,
-          partition: webPreferences?.partition ?? null,
-          backgroundThrottling: webPreferences?.backgroundThrottling ?? null,
-          sandbox: webPreferences?.sandbox ?? null,
-          contextIsolation: webPreferences?.contextIsolation ?? null,
-          nodeIntegration: webPreferences?.nodeIntegration ?? null,
-          webviewTag: webPreferences?.webviewTag ?? null,
-        },
-      } satisfies typeof ElectronWindowCreateOptions.Type;
+    create: (options) =>
+      Effect.promise(() =>
+        resolveLinuxX11WindowFrameOptions({
+          options,
+          platform,
+          env: process.env,
+          ozonePlatform: Electron.app.commandLine?.getSwitchValue("ozone-platform") ?? null,
+        }),
+      ).pipe(
+        Effect.flatMap((resolvedOptions) => {
+          const webPreferences = resolvedOptions.webPreferences;
+          const diagnosticOptions = {
+            title: resolvedOptions.title ?? null,
+            width: resolvedOptions.width ?? null,
+            height: resolvedOptions.height ?? null,
+            minWidth: resolvedOptions.minWidth ?? null,
+            minHeight: resolvedOptions.minHeight ?? null,
+            show: resolvedOptions.show ?? null,
+            modal: resolvedOptions.modal ?? null,
+            frame: resolvedOptions.frame ?? null,
+            transparent: resolvedOptions.transparent ?? null,
+            backgroundColor: resolvedOptions.backgroundColor ?? null,
+            webPreferences: {
+              preload: webPreferences?.preload ?? null,
+              partition: webPreferences?.partition ?? null,
+              backgroundThrottling: webPreferences?.backgroundThrottling ?? null,
+              sandbox: webPreferences?.sandbox ?? null,
+              contextIsolation: webPreferences?.contextIsolation ?? null,
+              nodeIntegration: webPreferences?.nodeIntegration ?? null,
+              webviewTag: webPreferences?.webviewTag ?? null,
+            },
+          } satisfies typeof ElectronWindowCreateOptions.Type;
 
-      return Effect.try({
-        try: () => new Electron.BrowserWindow(resolvedOptions),
-        catch: (cause) => new ElectronWindowCreateError({ options: diagnosticOptions, cause }),
-      });
-    },
+          return Effect.try({
+            try: () => new Electron.BrowserWindow(resolvedOptions),
+            catch: (cause) => new ElectronWindowCreateError({ options: diagnosticOptions, cause }),
+          });
+        }),
+      ),
     main: liveMain,
     currentMainOrFirst,
     focusedMainOrFirst,
