@@ -1,4 +1,4 @@
-import { spawnSync } from "node:child_process";
+import { execFile } from "node:child_process";
 
 import type * as Electron from "electron";
 
@@ -9,12 +9,16 @@ type WindowEnvironment = Readonly<
   Pick<NodeJS.ProcessEnv, "DISPLAY" | "WAYLAND_DISPLAY" | "XDG_SESSION_TYPE">
 >;
 
+export type XpropRunner = (
+  callback: (error: Error | null, stdout: string) => void,
+) => { readonly kill: (signal: NodeJS.Signals) => boolean };
+
 type ResolveLinuxX11WindowFrameOptionsInput = {
   readonly options: Electron.BrowserWindowConstructorOptions;
   readonly platform: NodeJS.Platform;
   readonly env: WindowEnvironment;
   readonly ozonePlatform?: string | null;
-  readonly readWmSupportedHints?: () => string | null;
+  readonly readWmSupportedHints?: () => Promise<string | null> | string | null;
 };
 
 export function isLinuxX11Session(
@@ -45,23 +49,58 @@ export function isLinuxX11Session(
   return Boolean(env.DISPLAY?.trim());
 }
 
-export function readX11WmSupportedHints(env: NodeJS.ProcessEnv = process.env): string | null {
-  const result = spawnSync("xprop", ["-root", "_NET_SUPPORTED"], {
-    encoding: "utf8",
-    env,
-    stdio: ["ignore", "pipe", "ignore"],
-    timeout: XPROP_TIMEOUT_MS,
-  });
+export function readX11WmSupportedHints(
+  env: NodeJS.ProcessEnv = process.env,
+  runXprop: XpropRunner = (callback) =>
+    execFile(
+      "xprop",
+      ["-root", "_NET_SUPPORTED"],
+      {
+        encoding: "utf8",
+        env,
+        stdio: ["ignore", "pipe", "ignore"],
+      },
+      (error, stdout) => callback(error, typeof stdout === "string" ? stdout : ""),
+    ),
+): Promise<string | null> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const finish = (value: string | null) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      if (timeout !== undefined) {
+        clearTimeout(timeout);
+      }
+      resolve(value);
+    };
 
-  if (result.error || result.status !== 0 || typeof result.stdout !== "string") {
-    return null;
-  }
-  return result.stdout;
+    try {
+      const child = runXprop((error, stdout) => {
+        finish(error === null ? stdout : null);
+      });
+      if (settled) {
+        return;
+      }
+      timeout = setTimeout(() => {
+        try {
+          child.kill("SIGKILL");
+        } catch {
+          // The hard deadline is authoritative even if the child already exited.
+        }
+        finish(null);
+      }, XPROP_TIMEOUT_MS);
+    } catch {
+      finish(null);
+    }
+  });
 }
 
-export function resolveLinuxX11WindowFrameOptions(
+export async function resolveLinuxX11WindowFrameOptions(
   input: ResolveLinuxX11WindowFrameOptionsInput,
-): Electron.BrowserWindowConstructorOptions {
+): Promise<Electron.BrowserWindowConstructorOptions> {
   const { options } = input;
   const usesHiddenTitleBar =
     options.frame !== true &&
@@ -76,7 +115,12 @@ export function resolveLinuxX11WindowFrameOptions(
     return options;
   }
 
-  const supportedHints = (input.readWmSupportedHints ?? (() => readX11WmSupportedHints()))();
+  let supportedHints: string | null;
+  try {
+    supportedHints = await (input.readWmSupportedHints ?? (() => readX11WmSupportedHints()))();
+  } catch {
+    return options;
+  }
   if (supportedHints === null || supportedHints.includes(GTK_FRAME_EXTENTS_HINT)) {
     return options;
   }
