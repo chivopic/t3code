@@ -45,12 +45,12 @@ describe("LinuxWindowFrame", () => {
     assert.isFalse(isLinuxX11Session("darwin", x11Environment, "x11"));
   });
 
-  it("falls back to native decorations when an X11 WM lacks GTK frame extents", () => {
+  it("falls back to native decorations when an X11 WM lacks GTK frame extents", async () => {
     const readWmSupportedHints = vi.fn(() =>
       "_NET_SUPPORTED(ATOM) = _NET_ACTIVE_WINDOW, _NET_WM_STATE",
     );
 
-    const resolved = resolveLinuxX11WindowFrameOptions({
+    const resolved = await resolveLinuxX11WindowFrameOptions({
       options: hiddenTitleBarOptions,
       platform: "linux",
       env: { DISPLAY: ":0", WAYLAND_DISPLAY: undefined, XDG_SESSION_TYPE: "x11" },
@@ -65,8 +65,8 @@ describe("LinuxWindowFrame", () => {
     assert.equal(readWmSupportedHints.mock.calls.length, 1);
   });
 
-  it("falls back when Electron is explicitly forced to X11 from Wayland", () => {
-    const resolved = resolveLinuxX11WindowFrameOptions({
+  it("falls back when Electron is explicitly forced to X11 from Wayland", async () => {
+    const resolved = await resolveLinuxX11WindowFrameOptions({
       options: hiddenTitleBarOptions,
       platform: "linux",
       env: { DISPLAY: ":1", WAYLAND_DISPLAY: "wayland-0", XDG_SESSION_TYPE: "wayland" },
@@ -81,8 +81,8 @@ describe("LinuxWindowFrame", () => {
     });
   });
 
-  it("keeps client decorations when the X11 WM supports GTK frame extents", () => {
-    const resolved = resolveLinuxX11WindowFrameOptions({
+  it("keeps client decorations when the X11 WM supports GTK frame extents", async () => {
+    const resolved = await resolveLinuxX11WindowFrameOptions({
       options: hiddenTitleBarOptions,
       platform: "linux",
       env: { DISPLAY: ":0", WAYLAND_DISPLAY: undefined, XDG_SESSION_TYPE: "x11" },
@@ -93,8 +93,8 @@ describe("LinuxWindowFrame", () => {
     assert.strictEqual(resolved, hiddenTitleBarOptions);
   });
 
-  it("fails open when X11 support cannot be inspected", () => {
-    const resolved = resolveLinuxX11WindowFrameOptions({
+  it("fails open when X11 support cannot be inspected", async () => {
+    const resolved = await resolveLinuxX11WindowFrameOptions({
       options: hiddenTitleBarOptions,
       platform: "linux",
       env: { DISPLAY: ":0", WAYLAND_DISPLAY: undefined, XDG_SESSION_TYPE: "x11" },
@@ -104,16 +104,16 @@ describe("LinuxWindowFrame", () => {
     assert.strictEqual(resolved, hiddenTitleBarOptions);
   });
 
-  it("does not probe or alter Wayland and non-hidden windows", () => {
+  it("does not probe or alter Wayland and non-hidden windows", async () => {
     const readWmSupportedHints = vi.fn(() => "");
 
-    const wayland = resolveLinuxX11WindowFrameOptions({
+    const wayland = await resolveLinuxX11WindowFrameOptions({
       options: hiddenTitleBarOptions,
       platform: "linux",
       env: { DISPLAY: ":1", WAYLAND_DISPLAY: "wayland-0", XDG_SESSION_TYPE: "wayland" },
       readWmSupportedHints,
     });
-    const native = resolveLinuxX11WindowFrameOptions({
+    const native = await resolveLinuxX11WindowFrameOptions({
       options: { width: 800, height: 600, frame: true },
       platform: "linux",
       env: { DISPLAY: ":0", WAYLAND_DISPLAY: undefined, XDG_SESSION_TYPE: "x11" },
