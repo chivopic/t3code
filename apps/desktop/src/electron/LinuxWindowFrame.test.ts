@@ -4,6 +4,7 @@ import { vi } from "vite-plus/test";
 
 import {
   isLinuxX11Session,
+  readX11WmSupportedHints,
   resolveLinuxX11WindowFrameOptions,
 } from "./LinuxWindowFrame.ts";
 
@@ -43,6 +44,21 @@ describe("LinuxWindowFrame", () => {
     assert.isTrue(isLinuxX11Session("linux", waylandEnvironment, "x11"));
     assert.isFalse(isLinuxX11Session("linux", x11Environment, "wayland"));
     assert.isFalse(isLinuxX11Session("darwin", x11Environment, "x11"));
+  });
+
+  it("enforces a hard deadline when xprop never completes", async () => {
+    vi.useFakeTimers();
+    try {
+      const kill = vi.fn(() => true);
+      const resultPromise = readX11WmSupportedHints({}, () => ({ kill }));
+
+      await vi.advanceTimersByTimeAsync(250);
+
+      assert.isNull(await resultPromise);
+      assert.deepEqual(kill.mock.calls, [["SIGKILL"]]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("falls back to native decorations when an X11 WM lacks GTK frame extents", async () => {
