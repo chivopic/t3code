@@ -81,6 +81,22 @@ describe("LinuxWindowFrame", () => {
     assert.equal(readWmSupportedHints.mock.calls.length, 1);
   });
 
+  it("does not accept similarly named GTK frame extent atoms", async () => {
+    const resolved = await resolveLinuxX11WindowFrameOptions({
+      options: hiddenTitleBarOptions,
+      platform: "linux",
+      env: { DISPLAY: ":0", WAYLAND_DISPLAY: undefined, XDG_SESSION_TYPE: "x11" },
+      readWmSupportedHints: () =>
+        "_NET_SUPPORTED(ATOM) = _NET_ACTIVE_WINDOW, _GTK_FRAME_EXTENTS_V2, _NET_WM_STATE",
+    });
+
+    assert.deepEqual(resolved, {
+      width: 1100,
+      height: 780,
+      frame: true,
+    });
+  });
+
   it("falls back when Electron is explicitly forced to X11 from Wayland", async () => {
     const resolved = await resolveLinuxX11WindowFrameOptions({
       options: hiddenTitleBarOptions,
