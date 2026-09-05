@@ -97,6 +97,10 @@ export function readX11WmSupportedHints(
   });
 }
 
+function hasGtkFrameExtentsHint(supportedHints: string): boolean {
+  return supportedHints.split(/[\s,=]+/).includes(GTK_FRAME_EXTENTS_HINT);
+}
+
 export async function resolveLinuxX11WindowFrameOptions(
   input: ResolveLinuxX11WindowFrameOptionsInput,
 ): Promise<Electron.BrowserWindowConstructorOptions> {
@@ -120,7 +124,7 @@ export async function resolveLinuxX11WindowFrameOptions(
   } catch {
     return options;
   }
-  if (supportedHints === null || supportedHints.includes(GTK_FRAME_EXTENTS_HINT)) {
+  if (supportedHints === null || hasGtkFrameExtentsHint(supportedHints)) {
     return options;
   }
 
