@@ -58,7 +58,6 @@ export function readX11WmSupportedHints(
       {
         encoding: "utf8",
         env,
-        stdio: ["ignore", "pipe", "ignore"],
       },
       (error, stdout) => callback(error, typeof stdout === "string" ? stdout : ""),
     ),
