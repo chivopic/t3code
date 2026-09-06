@@ -43,6 +43,21 @@ const ElectronWindowOperation = Schema.Literals([
   "destroy-window",
 ]);
 
+export interface ElectronWindowAppearanceCapabilities {
+  readonly titleBarOverlay: boolean;
+}
+
+const appearanceCapabilities = new WeakMap<
+  Electron.BrowserWindow,
+  ElectronWindowAppearanceCapabilities
+>();
+
+export function getAppearanceCapabilities(
+  window: Electron.BrowserWindow,
+): ElectronWindowAppearanceCapabilities | undefined {
+  return appearanceCapabilities.get(window);
+}
+
 export class ElectronWindowCreateError extends Schema.TaggedErrorClass<ElectronWindowCreateError>()(
   "ElectronWindowCreateError",
   {
@@ -200,7 +215,15 @@ export const make = Effect.gen(function* () {
           } satisfies typeof ElectronWindowCreateOptions.Type;
 
           return Effect.try({
-            try: () => new Electron.BrowserWindow(resolvedOptions),
+            try: () => {
+              const window = new Electron.BrowserWindow(resolvedOptions);
+              appearanceCapabilities.set(window, {
+                titleBarOverlay:
+                  resolvedOptions.titleBarOverlay === true ||
+                  typeof resolvedOptions.titleBarOverlay === "object",
+              });
+              return window;
+            },
             catch: (cause) => new ElectronWindowCreateError({ options: diagnosticOptions, cause }),
           });
         }),
